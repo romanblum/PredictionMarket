@@ -34,9 +34,10 @@ public class PredictionMarketAgent extends AbsPredictionMarketAgent {
 		this.numDecoys = this.getNumDecoys();
 		this.gotHeads = this.getCoin();
 		
+		// compute our initial true value
 		this.trueValue = getTrueValueOneAgent(this.numDecoys, this.gotHeads);
-		// TODO anything you want to compute before trading begins
 		
+		// initialize trading margins
 		generatePossibleValuesForMargins();
 	}
 	
@@ -59,15 +60,18 @@ public class PredictionMarketAgent extends AbsPredictionMarketAgent {
 		// remove a single occurance of the number of decoys we recieved 
 		decoys.remove(2*(this.numDecoys-1));
 		
+		// generate true value given total information for each possible permuation
 		ArrayList<Double> vals = coinResults.stream()
 				.map(coin -> computeTrueVal(decoys,coin))
 				.collect(Collectors.toCollection(ArrayList::new));
 				
 		Collections.sort(vals);
+		// number of values needed to achieve credible interval
 		int captured_vals = (int) (this.credibleInterval*vals.size());
 		
-		double min_range = vals.get(vals.size()-1) - vals.get(0);
 		
+		double min_range = vals.get(vals.size()-1) - vals.get(0);
+		// find credible interval with smallest width
 		for (int i = captured_vals; i < vals.size(); i++) {
 			double range = vals.get(i) - vals.get(i-captured_vals);
 			if (range < min_range) {
