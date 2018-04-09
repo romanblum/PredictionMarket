@@ -9,9 +9,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import brown.accounting.library.Transaction;
 import brown.agent.AbsPredictionMarketAgent;
+import brown.agent.library.FixedAgent;
+import brown.agent.library.RandomAgent;
+import brown.agent.library.UpdateAgent;
 import brown.channels.library.CallMarketChannel;
 import brown.exceptions.AgentCreationException;
+import brown.market.marketstate.library.BuyOrder;
+import brown.market.marketstate.library.OrderBook;
+import brown.market.marketstate.library.SellOrder;
 
 public class PredictionMarketAgent extends AbsPredictionMarketAgent {
 	
@@ -19,11 +26,9 @@ public class PredictionMarketAgent extends AbsPredictionMarketAgent {
 	int numDecoys;
 	boolean gotHeads;
 	
-	double buyMargin;
-	double sellMargin;
+	double margin = 2;
 	
-	double credibleInterval = .5;
-	
+	int rd = 0;
 	
 	public PredictionMarketAgent(String host, int port, String name) throws AgentCreationException {
 		super(host, port, name);
@@ -36,77 +41,41 @@ public class PredictionMarketAgent extends AbsPredictionMarketAgent {
 		
 		// compute our initial true value
 		this.trueValue = getTrueValueOneAgent(this.numDecoys, this.gotHeads);
-		
-		// initialize trading margins
-		generatePossibleValuesForMargins();
+
 	}
 	
 	private double getTrueValueOneAgent(int n, boolean gotHeads) {
 		double val = (n + 2.0)/(2.0*(n+1.0));	
 		return gotHeads ? val : 1.0-val;
 	}
-	
-	private void generatePossibleValuesForMargins() {
-		
-		// generate all possible results of coin flips
-		List<boolean []> coinResults = IntStream.range(0, (int)Math.pow(2, 5))
-		        .mapToObj(i -> new long[] { i })
-		        .map(BitSet::valueOf)
-		        .map(bs -> bitSetToArray(bs, 5))
-		        .collect(Collectors.toList());
-		 
-		
-		List<Integer> decoys = Arrays.asList(1,1,2,2,3,3);
-		// remove a single occurance of the number of decoys we recieved 
-		decoys.remove(2*(this.numDecoys-1));
-		
-		// generate true value given total information for each possible permuation
-		ArrayList<Double> vals = coinResults.stream()
-				.map(coin -> computeTrueVal(decoys,coin))
-				.collect(Collectors.toCollection(ArrayList::new));
-				
-		Collections.sort(vals);
-		// number of values needed to achieve credible interval
-		int captured_vals = (int) (this.credibleInterval*vals.size());
-		
-		
-		double min_range = vals.get(vals.size()-1) - vals.get(0);
-		// find credible interval with smallest width
-		for (int i = captured_vals; i < vals.size(); i++) {
-			double range = vals.get(i) - vals.get(i-captured_vals);
-			if (range < min_range) {
-				min_range = range;
-				this.buyMargin = this.trueValue - vals.get(i-captured_vals);
-				this.sellMargin = vals.get(i) - this.trueValue;
-			}
-		}
-		   
-	}
-
-	private Double computeTrueVal(List<Integer> decoys, boolean[] coin) {
-		Double givenH = this.trueValue;
-		Double givenT = 1.0-this.trueValue;
-		
-		Iterator<Integer> it = decoys.iterator();
-		for (int i = 0; i < 5; i++) {
-			Integer n = it.next();
-			double val = getTrueValueOneAgent(n,coin[i]);
-			givenH = givenH*val;
-			givenT = givenT*(1.0-val);
-		}
-		return givenH/(givenH + givenT);
-	}	
-
-	private boolean[] bitSetToArray(BitSet bs, int length) {
-		boolean[] result = new boolean[length];
-		bs.stream().forEach(i -> result[i] = true);
-		return result;
-	}
-
 
 	@Override
 	public void onMarketRequest(CallMarketChannel channel) {
-		// TODO decide if you want to bid/offer or not
+		if (rd >= 1) {
+			// compute updated true values based off order book and ledger
+			
+			// compare to previous trueValue? 
+		}
+		
+		OrderBook o = this.getOrderBook();
+		Iterator<BuyOrder> itb = o.getBuys().iterator();
+		while (itb.hasNext()) {
+			BuyOrder b = itb.next();
+			if (b.price > this.getLowestSell()) {
+				// do we sell all? should we be worried for tomorrow's lab
+			}
+		}
+		
+		Iterator<SellOrder> its = o.getSells().iterator();
+		while (its.hasNext()) {
+			SellOrder s = its.next();
+			if (s.price < this.getHighestBuy()) {
+				// do we sell all? should we be worried for tomorrow's lab
+			}
+		}
+		
+		
+		rd++;
 	}
 
 	@Override
@@ -117,19 +86,24 @@ public class PredictionMarketAgent extends AbsPredictionMarketAgent {
 
 	@Override
 	public double getHighestBuy() {
-		// TODO upper bound you would buy at
-		return 0;
+		return 100*this.trueValue - this.margin;
+		
 	}
 
 	@Override
 	public double getLowestSell() {
-		// TODO lower bound they
-		return 0;
+		return 100*this.trueValue + this.margin;
 	}
 
 	public static void main(String[] args) throws AgentCreationException {
-		new PredictionMarketAgent("localhost", 2121, "bot name goes here"); // TODO: name your bot
+		new PredictionMarketAgent("localhost", 2121, "us");
+		new RandomAgent("localhost", 2121, "agent1");
+		new RandomAgent("localhost", 2121, "agent2");
+		new RandomAgent("localhost", 2121, "agent3");
+		new RandomAgent("localhost", 2121, "agent4");
+		new RandomAgent("localhost", 2121, "agent5");
 		while (true) {
+			
 		}
 	}
 }
