@@ -4,7 +4,7 @@ import brown.server.library.PredictionMarketServer;
 
 public class PredictionMarketServerTemplate {
 	private static int seconds = 30;
-	private static int nSims = 1;
+	private static int nSims = 10;
 	private static int init_delay = 5;
 	private static int lag = 25;
 	
